@@ -1,38 +1,63 @@
-'use client';
+"use client";
 
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
-import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2, X, Save, History, Download, FileDown, Upload } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { exportNoteToPDF, exportSummaryToPDF, exportQuestionsToPDF, exportToText, exportToMarkdown } from '@/lib/exportUtils';
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import {
+  FileText,
+  MessageSquare,
+  Mic,
+  Volume2,
+  LogOut,
+  Sparkles,
+  BookOpen,
+  Loader2,
+  X,
+  Save,
+  History,
+  Download,
+  FileDown,
+  Upload,
+  FilePlus,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  exportNoteToPDF,
+  exportSummaryToPDF,
+  exportQuestionsToPDF,
+  exportToText,
+  exportToMarkdown,
+} from "@/lib/exportUtils";
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [notes, setNotes] = useState('');
-  const [noteTitle, setNoteTitle] = useState('');
-  const [category, setCategory] = useState('General');
-  const [summary, setSummary] = useState('');
+  const [notes, setNotes] = useState("");
+  const [noteTitle, setNoteTitle] = useState("");
+  const [category, setCategory] = useState("General");
+  const [summary, setSummary] = useState("");
   const [questions, setQuestions] = useState([]);
-  const [qaAnswer, setQaAnswer] = useState('');
-  const [question, setQuestion] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [qaAnswer, setQaAnswer] = useState("");
+  const [question, setQuestion] = useState("");
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [loadingAnswer, setLoadingAnswer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login');
+    if (status === "unauthenticated") {
+      router.push("/auth/login");
     }
   }, [status, router]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-blue-100">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -40,29 +65,31 @@ export default function Dashboard() {
     );
   }
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     // Check file type
-    if (file.type !== 'application/pdf') {
-      toast.error('Please upload a PDF file');
+    if (file.type !== "application/pdf") {
+      toast.error("Please upload a PDF file");
       return;
     }
 
     // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB');
+      toast.error("File size must be less than 10MB");
       return;
     }
 
     setUploading(true);
     const formData = new FormData();
-    formData.append('pdf', file);
+    formData.append("pdf", file);
 
     try {
-      const res = await fetch('/api/upload-pdf', {
-        method: 'POST',
+      const res = await fetch("/api/upload-pdf", {
+        method: "POST",
         body: formData,
       });
 
@@ -70,92 +97,101 @@ export default function Dashboard() {
 
       if (res.ok) {
         setNotes(data.text);
-        setNoteTitle(file.name.replace('.pdf', ''));
-        toast.success('PDF uploaded and text extracted successfully!');
+        setNoteTitle(file.name.replace(".pdf", ""));
+        setUploadedFileName(file.name);
+        toast.success("PDF uploaded and text extracted successfully!");
       } else {
-        toast.error(data.error || 'Failed to process PDF');
+        toast.error(data.error || "Failed to process PDF");
       }
     } catch (error) {
-      console.error('Error uploading PDF:', error);
-      toast.error('An error occurred while uploading PDF');
+      console.error("Error uploading PDF:", error);
+      toast.error("An error occurred while uploading PDF");
     } finally {
       setUploading(false);
       // Reset file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
+  };
+
+  const handleRemovePDF = () => {
+    setUploadedFileName("");
+    setNotes("");
+    setNoteTitle("");
+    setSummary("");
+    setQuestions([]);
   };
 
   const handleSummarize = async () => {
     if (!notes.trim()) {
-      toast.error('Please enter some notes first');
+      toast.error("Please enter some notes first");
       return;
     }
-    setLoading(true);
+    setLoadingSummary(true);
     try {
-      const res = await fetch('/api/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes }),
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setSummary(data.summary);
-        toast.success('Summary generated successfully!');
+        toast.success("Summary generated successfully!");
       } else {
-        toast.error(data.error || 'Failed to generate summary');
+        toast.error(data.error || "Failed to generate summary");
       }
     } catch (error) {
-      console.error('Error summarizing:', error);
-      toast.error('An error occurred while summarizing');
+      console.error("Error summarizing:", error);
+      toast.error("An error occurred while summarizing");
     }
-    setLoading(false);
+    setLoadingSummary(false);
   };
 
   const handleGenerateQuestions = async () => {
     if (!notes.trim()) {
-      toast.error('Please enter some notes first');
+      toast.error("Please enter some notes first");
       return;
     }
-    setLoading(true);
+    setLoadingQuestions(true);
     try {
-      const res = await fetch('/api/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/generate-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes }),
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setQuestions(data.questions);
-        toast.success('Questions generated successfully!');
+        toast.success("Questions generated successfully!");
       } else {
-        toast.error(data.error || 'Failed to generate questions');
+        toast.error(data.error || "Failed to generate questions");
       }
     } catch (error) {
-      console.error('Error generating questions:', error);
-      toast.error('An error occurred while generating questions');
+      console.error("Error generating questions:", error);
+      toast.error("An error occurred while generating questions");
     }
-    setLoading(false);
+    setLoadingQuestions(false);
   };
 
   const handleSaveNote = async () => {
     if (!noteTitle.trim()) {
-      toast.error('Please enter a title for your note');
+      toast.error("Please enter a title for your note");
       return;
     }
     if (!notes.trim()) {
-      toast.error('Please enter some notes to save');
+      toast.error("Please enter some notes to save");
       return;
     }
 
     setSaving(true);
     try {
-      const res = await fetch('/api/notes/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/notes/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: noteTitle,
           originalNotes: notes,
@@ -166,156 +202,165 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        toast.success('Note saved successfully!');
+        toast.success("Note saved successfully!");
         setShowSaveDialog(false);
       } else {
         const data = await res.json();
-        toast.error(data.error || 'Failed to save note');
+        toast.error(data.error || "Failed to save note");
       }
     } catch (error) {
-      console.error('Error saving note:', error);
-      toast.error('An error occurred while saving');
+      console.error("Error saving note:", error);
+      toast.error("An error occurred while saving");
     }
     setSaving(false);
   };
 
   const handleExport = (format: string) => {
-    const title = noteTitle || 'Untitled Note';
-    
+    const title = noteTitle || "Untitled Note";
+
     try {
       switch (format) {
-        case 'pdf-full':
+        case "pdf-full":
           exportNoteToPDF(title, notes, summary, questions, category);
-          toast.success('Exported as PDF successfully!');
+          toast.success("Exported as PDF successfully!");
           break;
-        case 'pdf-summary':
+        case "pdf-summary":
           if (!summary) {
-            toast.error('No summary to export. Generate a summary first.');
+            toast.error("No summary to export. Generate a summary first.");
             return;
           }
           exportSummaryToPDF(title, summary, category);
-          toast.success('Summary exported as PDF!');
+          toast.success("Summary exported as PDF!");
           break;
-        case 'pdf-questions':
+        case "pdf-questions":
           if (questions.length === 0) {
-            toast.error('No questions to export. Generate questions first.');
+            toast.error("No questions to export. Generate questions first.");
             return;
           }
           exportQuestionsToPDF(title, questions, category);
-          toast.success('Questions exported as PDF!');
+          toast.success("Questions exported as PDF!");
           break;
-        case 'text':
+        case "text":
           exportToText(title, notes, summary, questions);
-          toast.success('Exported as Text file!');
+          toast.success("Exported as Text file!");
           break;
-        case 'markdown':
+        case "markdown":
           exportToMarkdown(title, notes, summary, questions, category);
-          toast.success('Exported as Markdown file!');
+          toast.success("Exported as Markdown file!");
           break;
         default:
           break;
       }
       setShowExportDialog(false);
     } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export. Please try again.');
+      console.error("Export error:", error);
+      toast.error("Failed to export. Please try again.");
     }
   };
 
   const handleAskQuestion = async () => {
     if (!question.trim()) {
-      toast.error('Please enter a question');
+      toast.error("Please enter a question");
       return;
     }
     if (!notes.trim()) {
-      toast.error('Please enter notes first to ask questions about');
+      toast.error("Please enter notes first to ask questions about");
       return;
     }
-    setLoading(true);
+    setLoadingAnswer(true);
     try {
-      const res = await fetch('/api/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes, question }),
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setQaAnswer(data.answer);
-        toast.success('Answer generated!');
+        toast.success("Answer generated!");
       } else {
-        toast.error(data.error || 'Failed to get answer');
+        toast.error(data.error || "Failed to get answer");
       }
     } catch (error) {
-      console.error('Error asking question:', error);
-      toast.error('An error occurred while getting the answer');
+      console.error("Error asking question:", error);
+      toast.error("An error occurred while getting the answer");
     }
-    setLoading(false);
+    setLoadingAnswer(false);
   };
 
   const startListening = () => {
-    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (
+      typeof window !== "undefined" &&
+      ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
+    ) {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.onstart = () => {
         setIsListening(true);
-        toast.success('Listening... Speak now');
+        toast.success("Listening... Speak now");
       };
       recognition.onresult = (event: any) => {
         setQuestion(event.results[0][0].transcript);
-        toast.success('Voice input captured!');
+        toast.success("Voice input captured!");
       };
       recognition.onerror = () => {
-        toast.error('Voice recognition failed');
+        toast.error("Voice recognition failed");
       };
       recognition.onend = () => setIsListening(false);
       recognition.start();
     } else {
-      toast.error('Voice recognition not supported in your browser');
+      toast.error("Voice recognition not supported in your browser");
     }
   };
 
   const speakAnswer = (text: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(text);
       window.speechSynthesis.speak(utterance);
-      toast.success('Reading answer aloud...');
+      toast.success("Reading answer aloud...");
     } else {
-      toast.error('Text-to-speech not supported in your browser');
+      toast.error("Text-to-speech not supported in your browser");
     }
   };
 
   const handleLogout = () => {
-    signOut({ callbackUrl: '/' });
-    toast.success('Logged out successfully');
+    signOut({ callbackUrl: "/" });
+    toast.success("Logged out successfully");
   };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100">
-      {/* All existing dialogs (Export, Save, Logout) remain the same */}
+      {/* Export Dialog */}
       {showExportDialog && (
         <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Export Note</h3>
-              <button 
+              <h3 className="text-xl font-semibold text-gray-900">
+                Export Note
+              </h3>
+              <button
                 onClick={() => setShowExportDialog(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-3">
               <button
-                onClick={() => handleExport('pdf-full')}
+                onClick={() => handleExport("pdf-full")}
                 className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
                   <FileDown className="w-5 h-5 text-red-600" />
                   <div className="text-left">
                     <p className="font-medium text-gray-900">Full Note (PDF)</p>
-                    <p className="text-xs text-gray-500">Notes, summary & questions</p>
+                    <p className="text-xs text-gray-500">
+                      Notes, summary & questions
+                    </p>
                   </div>
                 </div>
                 <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
@@ -323,14 +368,18 @@ export default function Dashboard() {
 
               {summary && (
                 <button
-                  onClick={() => handleExport('pdf-summary')}
+                  onClick={() => handleExport("pdf-summary")}
                   className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
                 >
                   <div className="flex items-center space-x-3">
                     <FileDown className="w-5 h-5 text-blue-600" />
                     <div className="text-left">
-                      <p className="font-medium text-gray-900">Summary Only (PDF)</p>
-                      <p className="text-xs text-gray-500">Just the AI summary</p>
+                      <p className="font-medium text-gray-900">
+                        Summary Only (PDF)
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Just the AI summary
+                      </p>
                     </div>
                   </div>
                   <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
@@ -339,14 +388,18 @@ export default function Dashboard() {
 
               {questions.length > 0 && (
                 <button
-                  onClick={() => handleExport('pdf-questions')}
+                  onClick={() => handleExport("pdf-questions")}
                   className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
                 >
                   <div className="flex items-center space-x-3">
                     <FileDown className="w-5 h-5 text-green-600" />
                     <div className="text-left">
-                      <p className="font-medium text-gray-900">Questions Only (PDF)</p>
-                      <p className="text-xs text-gray-500">Practice questions</p>
+                      <p className="font-medium text-gray-900">
+                        Questions Only (PDF)
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Practice questions
+                      </p>
                     </div>
                   </div>
                   <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
@@ -354,13 +407,15 @@ export default function Dashboard() {
               )}
 
               <button
-                onClick={() => handleExport('text')}
+                onClick={() => handleExport("text")}
                 className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
                   <FileText className="w-5 h-5 text-gray-600" />
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">Text File (.txt)</p>
+                    <p className="font-medium text-gray-900">
+                      Text File (.txt)
+                    </p>
                     <p className="text-xs text-gray-500">Plain text format</p>
                   </div>
                 </div>
@@ -368,7 +423,7 @@ export default function Dashboard() {
               </button>
 
               <button
-                onClick={() => handleExport('markdown')}
+                onClick={() => handleExport("markdown")}
                 className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -385,22 +440,26 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Save Dialog */}
       {showSaveDialog && (
-        <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Save Note</h3>
-              <button 
+              <button
                 onClick={() => setShowSaveDialog(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
-                <label htmlFor="noteTitle" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="noteTitle"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Note Title *
                 </label>
                 <input
@@ -414,7 +473,10 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="category"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Category
                 </label>
                 <select
@@ -435,8 +497,8 @@ export default function Dashboard() {
 
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-gray-600">
-                  This will save your notes{summary && ', summary'}
-                  {questions.length > 0 && ', and questions'} to your history.
+                  This will save your notes{summary && ", summary"}
+                  {questions.length > 0 && ", and questions"} to your history.
                 </p>
               </div>
             </div>
@@ -470,12 +532,15 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Logout Dialog */}
       {showLogoutDialog && (
-        <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Confirm Logout</h3>
-              <button 
+              <h3 className="text-xl font-semibold text-gray-900">
+                Confirm Logout
+              </h3>
+              <button
                 onClick={() => setShowLogoutDialog(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
@@ -512,20 +577,22 @@ export default function Dashboard() {
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Welcome, {session?.user?.name || 'User'}</h1>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Welcome, {session?.user?.name || "User"}
+                </h1>
                 <p className="text-xs text-gray-500">{session?.user?.email}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => router.push('/dashboard/history')}
+              <button
+                onClick={() => router.push("/dashboard/history")}
                 className="flex items-center space-x-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <History className="w-4 h-4" />
                 <span className="hidden sm:inline">History</span>
               </button>
-              <button 
-                onClick={() => setShowLogoutDialog(true)} 
+              <button
+                onClick={() => setShowLogoutDialog(true)}
                 className="flex items-center space-x-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
@@ -543,9 +610,11 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               <FileText className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Your Notes</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Your Notes
+              </h2>
             </div>
-            
+
             {/* PDF Upload Button */}
             <div>
               <input
@@ -575,40 +644,75 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Paste or type your lecture notes here, or upload a PDF..."
-            className="w-full h-40 p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-          />
+          {/* Uploaded PDF Display or Textarea */}
+          {uploadedFileName ? (
+            <div className="border-2 border-dashed border-blue-300 bg-blue-50 rounded-xl p-6 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FilePlus className="w-10 h-10 text-blue-600" />
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {uploadedFileName}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      PDF uploaded successfully
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleRemovePDF}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Remove PDF"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Paste or type your lecture notes here, or upload a PDF..."
+              className="w-full h-40 p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            />
+          )}
+
           <div className="flex flex-wrap gap-3 mt-4">
-            <button 
-              onClick={handleSummarize} 
-              disabled={loading || !notes.trim()} 
+            <button
+              onClick={handleSummarize}
+              disabled={loadingSummary || !notes.trim()}
               className="flex items-center space-x-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {loadingSummary ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
               <span>Summarize</span>
             </button>
-            <button 
-              onClick={handleGenerateQuestions} 
-              disabled={loading || !notes.trim()} 
+            <button
+              onClick={handleGenerateQuestions}
+              disabled={loadingQuestions || !notes.trim()}
               className="flex items-center space-x-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+              {loadingQuestions ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MessageSquare className="w-4 h-4" />
+              )}
               <span>Generate Questions</span>
             </button>
-            <button 
-              onClick={() => setShowSaveDialog(true)} 
-              disabled={!notes.trim()} 
+            <button
+              onClick={() => setShowSaveDialog(true)}
+              disabled={!notes.trim() || !summary}
               className="flex items-center space-x-2 bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
             >
               <Save className="w-4 h-4" />
               <span>Save Note</span>
             </button>
-            <button 
-              onClick={() => setShowExportDialog(true)} 
-              disabled={!notes.trim()} 
+            <button
+              onClick={() => setShowExportDialog(true)}
+              disabled={!notes.trim() || !summary}
               className="flex items-center space-x-2 bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
             >
               <Download className="w-4 h-4" />
@@ -637,7 +741,9 @@ export default function Dashboard() {
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex items-center space-x-2 mb-4">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Practice Questions</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Practice Questions
+                </h2>
               </div>
               <ul className="space-y-3">
                 {questions.map((q, i) => (
@@ -657,7 +763,9 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <div className="flex items-center space-x-2 mb-4">
             <Mic className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Ask a Question</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Ask a Question
+            </h2>
           </div>
           <div className="flex gap-2 mb-4">
             <input
@@ -666,23 +774,29 @@ export default function Dashboard() {
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Ask a question based on your notes..."
               className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              onKeyPress={(e) => e.key === 'Enter' && handleAskQuestion()}
+              onKeyPress={(e) => e.key === "Enter" && handleAskQuestion()}
             />
-            <button 
-              onClick={startListening} 
+            <button
+              onClick={startListening}
               disabled={isListening}
               className="p-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
               title="Voice input"
             >
-              <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : ''}`} />
+              <Mic
+                className={`w-5 h-5 ${isListening ? "animate-pulse" : ""}`}
+              />
             </button>
           </div>
-          <button 
-            onClick={handleAskQuestion} 
-            disabled={loading || !question.trim() || !notes.trim()} 
+          <button
+            onClick={handleAskQuestion}
+            disabled={loadingAnswer || !question.trim() || !notes.trim()}
             className="flex items-center space-x-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+            {loadingAnswer ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <MessageSquare className="w-4 h-4" />
+            )}
             <span>Get Answer</span>
           </button>
 
@@ -690,8 +804,8 @@ export default function Dashboard() {
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-semibold text-gray-900">Answer:</h3>
-                <button 
-                  onClick={() => speakAnswer(qaAnswer)} 
+                <button
+                  onClick={() => speakAnswer(qaAnswer)}
                   className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   title="Read aloud"
                 >
