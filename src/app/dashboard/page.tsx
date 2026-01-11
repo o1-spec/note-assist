@@ -320,13 +320,6 @@ export default function Dashboard() {
 
   const speakAnswer = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      if (isSpeaking) {
-        window.speechSynthesis.cancel();
-        setIsSpeaking(false);
-        setIsPaused(false);
-        return;
-      }
-
       const utterance = new SpeechSynthesisUtterance(text);
 
       utterance.onstart = () => {
@@ -351,7 +344,6 @@ export default function Dashboard() {
       toast.error("Text-to-speech not supported in your browser");
     }
   };
-
   const pauseResumeSpeech = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       if (isPaused) {
