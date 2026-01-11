@@ -382,9 +382,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100">
-      {/* Export Dialog */}
       {showExportDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-semibold text-gray-900">
@@ -488,7 +487,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
       {/* Save Dialog */}
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -580,7 +578,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
       {/* Logout Dialog */}
       {showLogoutDialog && (
         <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -616,7 +613,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -651,7 +647,6 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Notes Input Section */}
@@ -769,7 +764,6 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-
         {/* Results Grid */}
         <div className="grid lg:grid-cols-2 gap-6 mb-6">
           {/* Summary Section */}
@@ -807,87 +801,90 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
-        {/* Q&A Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <Mic className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Ask a Question
-            </h2>
-          </div>
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask a question based on your notes..."
-              className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              onKeyPress={(e) => e.key === "Enter" && handleAskQuestion()}
-            />
-            <button
-              onClick={startListening}
-              disabled={isListening}
-              className="p-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
-              title="Voice input"
-            >
-              <Mic
-                className={`w-5 h-5 ${isListening ? "animate-pulse" : ""}`}
-              />
-            </button>
-          </div>
-          <button
-            onClick={handleAskQuestion}
-            disabled={loadingAnswer || !question.trim() || !notes.trim()}
-            className="flex items-center space-x-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
-          >
-            {loadingAnswer ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <MessageSquare className="w-4 h-4" />
-            )}
-            <span>Get Answer</span>
-          </button>
-
-          {qaAnswer && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-semibold text-gray-900">Answer:</h3>
-                <div className="flex gap-2">
-                  {isSpeaking && (
-                    <button
-                      onClick={pauseResumeSpeech}
-                      className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                      title={isPaused ? "Resume" : "Pause"}
-                    >
-                      {isPaused ? (
-                        <Play className="w-4 h-4" />
-                      ) : (
-                        <Pause className="w-4 h-4" />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => speakAnswer(qaAnswer)}
-                    className={`p-2 ${
-                      isSpeaking
-                        ? "bg-red-600 hover:bg-red-700"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    } text-white rounded-lg transition-colors`}
-                    title={isSpeaking ? "Stop" : "Read aloud"}
-                  >
-                    {isSpeaking ? (
-                      <Square className="w-4 h-4" />
-                    ) : (
-                      <Volume2 className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <p className="text-gray-700 leading-relaxed">{qaAnswer}</p>
+        {notes.trim() && (
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Mic className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Ask a Question
+              </h2>
             </div>
-          )}
-        </div>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="Ask a question based on your notes..."
+                className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onKeyPress={(e) => e.key === "Enter" && handleAskQuestion()}
+              />
+              <button
+                onClick={startListening}
+                disabled={isListening}
+                className="p-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                title="Voice input"
+              >
+                <Mic
+                  className={`w-5 h-5 ${isListening ? "animate-pulse" : ""}`}
+                />
+              </button>
+            </div>
+            <button
+              onClick={handleAskQuestion}
+              disabled={loadingAnswer || !question.trim() || !notes.trim()}
+              className="flex items-center space-x-2 bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+            >
+              {loadingAnswer ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MessageSquare className="w-4 h-4" />
+              )}
+              <span>Get Answer</span>
+            </button>
+
+            {qaAnswer && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-gray-900">Answer:</h3>
+                  <div className="flex gap-2">
+                    {isSpeaking && (
+                      <>
+                        <button
+                          onClick={pauseResumeSpeech}
+                          className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                          title={isPaused ? "Resume" : "Pause"}
+                        >
+                          {isPaused ? (
+                            <Play className="w-4 h-4" />
+                          ) : (
+                            <Pause className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={stopSpeech}
+                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          title="Stop"
+                        >
+                          <Square className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                    {!isSpeaking && (
+                      <button
+                        onClick={() => speakAnswer(qaAnswer)}
+                        className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                        title="Read aloud"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-gray-700 leading-relaxed">{qaAnswer}</p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

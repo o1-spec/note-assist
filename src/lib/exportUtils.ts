@@ -2,6 +2,26 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 
+// Helper function to format text with proper line breaks and spacing
+const formatTextForPDF = (text: string, doc: jsPDF, maxWidth: number) => {
+  // Split by double line breaks (paragraphs)
+  const paragraphs = text.split(/\n\n+/);
+  const formattedLines: string[] = [];
+
+  paragraphs.forEach((para, index) => {
+    // Split long paragraphs into lines that fit
+    const lines = doc.splitTextToSize(para.trim(), maxWidth);
+    formattedLines.push(...lines);
+    
+    // Add spacing between paragraphs (except the last one)
+    if (index < paragraphs.length - 1) {
+      formattedLines.push(''); // Empty line for spacing
+    }
+  });
+
+  return formattedLines;
+};
+
 export const exportNoteToPDF = (
   title: string,
   notes: string,
@@ -11,6 +31,8 @@ export const exportNoteToPDF = (
 ) => {
   const doc = new jsPDF();
   let yPosition = 20;
+  const lineHeight = 6;
+  const pageHeight = 280;
 
   // Add title
   doc.setFontSize(20);
@@ -36,9 +58,18 @@ export const exportNoteToPDF = (
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  const notesLines = doc.splitTextToSize(notes, 170);
-  doc.text(notesLines, 20, yPosition);
-  yPosition += notesLines.length * 5 + 10;
+  const notesLines = formatTextForPDF(notes, doc, 170);
+  
+  notesLines.forEach(line => {
+    if (yPosition > pageHeight) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    doc.text(line, 20, yPosition);
+    yPosition += lineHeight;
+  });
+  
+  yPosition += 10;
 
   // Add summary if exists
   if (summary) {
@@ -46,6 +77,7 @@ export const exportNoteToPDF = (
       doc.addPage();
       yPosition = 20;
     }
+    
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text('Summary', 20, yPosition);
@@ -53,9 +85,18 @@ export const exportNoteToPDF = (
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    const summaryLines = doc.splitTextToSize(summary, 170);
-    doc.text(summaryLines, 20, yPosition);
-    yPosition += summaryLines.length * 5 + 10;
+    const summaryLines = formatTextForPDF(summary, doc, 170);
+    
+    summaryLines.forEach(line => {
+      if (yPosition > pageHeight) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      doc.text(line, 20, yPosition);
+      yPosition += lineHeight;
+    });
+    
+    yPosition += 10;
   }
 
   // Add questions if exist
@@ -78,8 +119,15 @@ export const exportNoteToPDF = (
       }
       const questionText = `${i + 1}. ${q}`;
       const questionLines = doc.splitTextToSize(questionText, 170);
-      doc.text(questionLines, 20, yPosition);
-      yPosition += questionLines.length * 5 + 5;
+      questionLines.forEach((line: string) => {
+        if (yPosition > pageHeight) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        doc.text(line, 20, yPosition);
+        yPosition += lineHeight;
+      });
+      yPosition += 3;
     });
   }
 
@@ -90,6 +138,8 @@ export const exportNoteToPDF = (
 export const exportSummaryToPDF = (title: string, summary: string, category?: string) => {
   const doc = new jsPDF();
   let yPosition = 20;
+  const lineHeight = 6;
+  const pageHeight = 280;
 
   // Add title
   doc.setFontSize(20);
@@ -106,12 +156,20 @@ export const exportSummaryToPDF = (title: string, summary: string, category?: st
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, yPosition);
   yPosition += 15;
 
-  // Add summary
+  // Add summary with proper formatting
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0);
-  const summaryLines = doc.splitTextToSize(summary, 170);
-  doc.text(summaryLines, 20, yPosition);
+  
+  const summaryLines = formatTextForPDF(summary, doc, 170);
+  summaryLines.forEach(line => {
+    if (yPosition > pageHeight) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    doc.text(line, 20, yPosition);
+    yPosition += lineHeight;
+  });
 
   // Save
   doc.save(`Summary_${title.replace(/[^a-z0-9]/gi, '_')}.pdf`);
@@ -120,6 +178,8 @@ export const exportSummaryToPDF = (title: string, summary: string, category?: st
 export const exportQuestionsToPDF = (title: string, questions: string[], category?: string) => {
   const doc = new jsPDF();
   let yPosition = 20;
+  const lineHeight = 6;
+  const pageHeight = 280;
 
   // Add title
   doc.setFontSize(20);
@@ -152,8 +212,15 @@ export const exportQuestionsToPDF = (title: string, questions: string[], categor
     }
     const questionText = `${i + 1}. ${q}`;
     const questionLines = doc.splitTextToSize(questionText, 170);
-    doc.text(questionLines, 20, yPosition);
-    yPosition += questionLines.length * 5 + 7;
+    questionLines.forEach((line: string) => {
+      if (yPosition > pageHeight) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      doc.text(line, 20, yPosition);
+      yPosition += lineHeight;
+    });
+    yPosition += 5;
   });
 
   // Save
@@ -204,7 +271,7 @@ export const exportToMarkdown = (title: string, notes: string, summary?: string,
   if (questions && questions.length > 0) {
     content += `## Practice Questions\n\n`;
     questions.forEach((q, i) => {
-      content += `${i + 1}. ${q}\n`;
+      content += `${i + 1}. ${q}\n\n`;
     });
   }
 
