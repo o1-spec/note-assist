@@ -3,7 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2 } from 'lucide-react';
+import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Dashboard() {
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -148,8 +149,47 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = () => {
+    signOut({ callbackUrl: '/' });
+    toast.success('Logged out successfully');
+  };
+
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100">
+      {/* Logout Confirmation Dialog */}
+      {showLogoutDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Confirm Logout</h3>
+              <button 
+                onClick={() => setShowLogoutDialog(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to log out? Any unsaved work will be lost.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutDialog(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -159,12 +199,12 @@ export default function Dashboard() {
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">AI Notes Assistant</h1>
+                <h1 className="text-xl font-bold text-gray-900">Welcome, {session?.user?.name || 'User'}</h1>
                 <p className="text-xs text-gray-500">{session?.user?.email}</p>
               </div>
             </div>
             <button 
-              onClick={() => signOut({ callbackUrl: '/' })} 
+              onClick={() => setShowLogoutDialog(true)} 
               className="flex items-center space-x-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors"
             >
               <LogOut className="w-4 h-4" />
