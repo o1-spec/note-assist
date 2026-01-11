@@ -3,20 +3,24 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2, X } from 'lucide-react';
+import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2, X, Save, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [notes, setNotes] = useState('');
+  const [noteTitle, setNoteTitle] = useState('');
+  const [category, setCategory] = useState('General');
   const [summary, setSummary] = useState('');
   const [questions, setQuestions] = useState([]);
   const [qaAnswer, setQaAnswer] = useState('');
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -84,6 +88,48 @@ export default function Dashboard() {
       toast.error('An error occurred while generating questions');
     }
     setLoading(false);
+  };
+
+  const handleSaveNote = async () => {
+    if (!noteTitle.trim()) {
+      toast.error('Please enter a title for your note');
+      return;
+    }
+    if (!notes.trim()) {
+      toast.error('Please enter some notes to save');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/notes/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: noteTitle,
+          originalNotes: notes,
+          summary,
+          questions,
+          category,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Note saved successfully!');
+        setShowSaveDialog(false);
+        setNoteTitle('');
+        setNotes('');
+        setSummary('');
+        setQuestions([]);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to save note');
+      }
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast.error('An error occurred while saving');
+    }
+    setSaving(false);
   };
 
   const handleAskQuestion = async () => {
@@ -156,6 +202,92 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100">
+      {/* Save Note Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Save Note</h3>
+              <button 
+                onClick={() => setShowSaveDialog(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="noteTitle" className="block text-sm font-medium text-gray-700 mb-2">
+                  Note Title *
+                </label>
+                <input
+                  type="text"
+                  id="noteTitle"
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                  placeholder="e.g., Math Lecture - Chapter 5"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="General">General</option>
+                  <option value="Math">Math</option>
+                  <option value="Science">Science</option>
+                  <option value="History">History</option>
+                  <option value="English">English</option>
+                  <option value="Computer Science">Computer Science</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  This will save your notes{summary && ', summary'}
+                  {questions.length > 0 && ', and questions'} to your history.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNote}
+                disabled={saving || !noteTitle.trim()}
+                className="flex-1 px-4 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Logout Confirmation Dialog */}
       {showLogoutDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -203,13 +335,22 @@ export default function Dashboard() {
                 <p className="text-xs text-gray-500">{session?.user?.email}</p>
               </div>
             </div>
-            <button 
-              onClick={() => setShowLogoutDialog(true)} 
-              className="flex items-center space-x-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => router.push('/dashboard/history')}
+                className="flex items-center space-x-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">History</span>
+              </button>
+              <button 
+                onClick={() => setShowLogoutDialog(true)} 
+                className="flex items-center space-x-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -244,6 +385,14 @@ export default function Dashboard() {
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
               <span>Generate Questions</span>
+            </button>
+            <button 
+              onClick={() => setShowSaveDialog(true)} 
+              disabled={!notes.trim()} 
+              className="flex items-center space-x-2 bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+            >
+              <Save className="w-4 h-4" />
+              <span>Save Note</span>
             </button>
           </div>
         </div>

@@ -6,18 +6,24 @@ const NoteSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  title: {
+    type: String,
+    required: true,
+  },
   originalNotes: {
     type: String,
     required: true,
   },
   summary: {
     type: String,
-    default: '',
   },
   questions: [{
-    question: String,
-    answer: String,
+    type: String,
   }],
+  category: {
+    type: String,
+    default: 'General',
+  },
 }, {
   timestamps: true,
 });
