@@ -19,6 +19,9 @@ import {
   FileDown,
   Upload,
   FilePlus,
+  Pause,
+  Play,
+  Square,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -45,6 +48,8 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -71,13 +76,11 @@ export default function Dashboard() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check file type
     if (file.type !== "application/pdf") {
       toast.error("Please upload a PDF file");
       return;
     }
 
-    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File size must be less than 10MB");
       return;
@@ -108,7 +111,6 @@ export default function Dashboard() {
       toast.error("An error occurred while uploading PDF");
     } finally {
       setUploading(false);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -318,11 +320,58 @@ export default function Dashboard() {
 
   const speakAnswer = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        setIsPaused(false);
+        return;
+      }
+
       const utterance = new SpeechSynthesisUtterance(text);
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setIsPaused(false);
+        toast.success("Reading answer aloud...");
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+      };
+
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        toast.error("Speech error occurred");
+      };
+
       window.speechSynthesis.speak(utterance);
-      toast.success("Reading answer aloud...");
     } else {
       toast.error("Text-to-speech not supported in your browser");
+    }
+  };
+
+  const pauseResumeSpeech = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (isPaused) {
+        window.speechSynthesis.resume();
+        setIsPaused(false);
+        toast.success("Resumed");
+      } else {
+        window.speechSynthesis.pause();
+        setIsPaused(true);
+        toast.success("Paused");
+      }
+    }
+  };
+
+  const stopSpeech = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      setIsPaused(false);
+      toast.success("Stopped");
     }
   };
 
@@ -335,7 +384,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100">
       {/* Export Dialog */}
       {showExportDialog && (
-        <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-semibold text-gray-900">
@@ -442,7 +491,7 @@ export default function Dashboard() {
 
       {/* Save Dialog */}
       {showSaveDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-semibold text-gray-900">Save Note</h3>
@@ -534,7 +583,7 @@ export default function Dashboard() {
 
       {/* Logout Dialog */}
       {showLogoutDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-semibold text-gray-900">
@@ -804,13 +853,36 @@ export default function Dashboard() {
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-semibold text-gray-900">Answer:</h3>
-                <button
-                  onClick={() => speakAnswer(qaAnswer)}
-                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  title="Read aloud"
-                >
-                  <Volume2 className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                  {isSpeaking && (
+                    <button
+                      onClick={pauseResumeSpeech}
+                      className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                      title={isPaused ? "Resume" : "Pause"}
+                    >
+                      {isPaused ? (
+                        <Play className="w-4 h-4" />
+                      ) : (
+                        <Pause className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => speakAnswer(qaAnswer)}
+                    className={`p-2 ${
+                      isSpeaking
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    } text-white rounded-lg transition-colors`}
+                    title={isSpeaking ? "Stop" : "Read aloud"}
+                  >
+                    {isSpeaking ? (
+                      <Square className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <p className="text-gray-700 leading-relaxed">{qaAnswer}</p>
             </div>
