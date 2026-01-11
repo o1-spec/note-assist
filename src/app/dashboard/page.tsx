@@ -2,9 +2,10 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2, X, Save, History } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { FileText, MessageSquare, Mic, Volume2, LogOut, Sparkles, BookOpen, Loader2, X, Save, History, Download, FileDown, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { exportNoteToPDF, exportSummaryToPDF, exportQuestionsToPDF, exportToText, exportToMarkdown } from '@/lib/exportUtils';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -18,9 +19,12 @@ export default function Dashboard() {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -35,6 +39,53 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file type
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('pdf', file);
+
+    try {
+      const res = await fetch('/api/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setNotes(data.text);
+        setNoteTitle(file.name.replace('.pdf', ''));
+        toast.success('PDF uploaded and text extracted successfully!');
+      } else {
+        toast.error(data.error || 'Failed to process PDF');
+      }
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      toast.error('An error occurred while uploading PDF');
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleSummarize = async () => {
     if (!notes.trim()) {
@@ -117,10 +168,6 @@ export default function Dashboard() {
       if (res.ok) {
         toast.success('Note saved successfully!');
         setShowSaveDialog(false);
-        setNoteTitle('');
-        setNotes('');
-        setSummary('');
-        setQuestions([]);
       } else {
         const data = await res.json();
         toast.error(data.error || 'Failed to save note');
@@ -130,6 +177,49 @@ export default function Dashboard() {
       toast.error('An error occurred while saving');
     }
     setSaving(false);
+  };
+
+  const handleExport = (format: string) => {
+    const title = noteTitle || 'Untitled Note';
+    
+    try {
+      switch (format) {
+        case 'pdf-full':
+          exportNoteToPDF(title, notes, summary, questions, category);
+          toast.success('Exported as PDF successfully!');
+          break;
+        case 'pdf-summary':
+          if (!summary) {
+            toast.error('No summary to export. Generate a summary first.');
+            return;
+          }
+          exportSummaryToPDF(title, summary, category);
+          toast.success('Summary exported as PDF!');
+          break;
+        case 'pdf-questions':
+          if (questions.length === 0) {
+            toast.error('No questions to export. Generate questions first.');
+            return;
+          }
+          exportQuestionsToPDF(title, questions, category);
+          toast.success('Questions exported as PDF!');
+          break;
+        case 'text':
+          exportToText(title, notes, summary, questions);
+          toast.success('Exported as Text file!');
+          break;
+        case 'markdown':
+          exportToMarkdown(title, notes, summary, questions, category);
+          toast.success('Exported as Markdown file!');
+          break;
+        default:
+          break;
+      }
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export. Please try again.');
+    }
   };
 
   const handleAskQuestion = async () => {
@@ -202,7 +292,99 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100">
-      {/* Save Note Dialog */}
+      {/* All existing dialogs (Export, Save, Logout) remain the same */}
+      {showExportDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Export Note</h3>
+              <button 
+                onClick={() => setShowExportDialog(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => handleExport('pdf-full')}
+                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+              >
+                <div className="flex items-center space-x-3">
+                  <FileDown className="w-5 h-5 text-red-600" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Full Note (PDF)</p>
+                    <p className="text-xs text-gray-500">Notes, summary & questions</p>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+              </button>
+
+              {summary && (
+                <button
+                  onClick={() => handleExport('pdf-summary')}
+                  className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileDown className="w-5 h-5 text-blue-600" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Summary Only (PDF)</p>
+                      <p className="text-xs text-gray-500">Just the AI summary</p>
+                    </div>
+                  </div>
+                  <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </button>
+              )}
+
+              {questions.length > 0 && (
+                <button
+                  onClick={() => handleExport('pdf-questions')}
+                  className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileDown className="w-5 h-5 text-green-600" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Questions Only (PDF)</p>
+                      <p className="text-xs text-gray-500">Practice questions</p>
+                    </div>
+                  </div>
+                  <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </button>
+              )}
+
+              <button
+                onClick={() => handleExport('text')}
+                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+              >
+                <div className="flex items-center space-x-3">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Text File (.txt)</p>
+                    <p className="text-xs text-gray-500">Plain text format</p>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+              </button>
+
+              <button
+                onClick={() => handleExport('markdown')}
+                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
+              >
+                <div className="flex items-center space-x-3">
+                  <FileText className="w-5 h-5 text-purple-600" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Markdown (.md)</p>
+                    <p className="text-xs text-gray-500">Formatted text</p>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -288,7 +470,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Logout Confirmation Dialog */}
       {showLogoutDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -359,14 +540,45 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Notes Input Section */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Your Notes</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Your Notes</h2>
+            </div>
+            
+            {/* PDF Upload Button */}
+            <div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".pdf"
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>Upload PDF</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Paste or type your lecture notes here..."
+            placeholder="Paste or type your lecture notes here, or upload a PDF..."
             className="w-full h-40 p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
           />
           <div className="flex flex-wrap gap-3 mt-4">
@@ -393,6 +605,14 @@ export default function Dashboard() {
             >
               <Save className="w-4 h-4" />
               <span>Save Note</span>
+            </button>
+            <button 
+              onClick={() => setShowExportDialog(true)} 
+              disabled={!notes.trim()} 
+              className="flex items-center space-x-2 bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
             </button>
           </div>
         </div>
